@@ -1,0 +1,129 @@
+blueprint:
+  name: Smart knob dimmer - blinds via MQTT - advanced
+  description: Smart knob dimmer for blinds control via MQTT
+  domain: automation
+  input:
+    mqtt_topic:
+      name: Smart knob MQTT topic
+      selector:
+        text:
+      default: "zigbee2mqtt/dimmer-xxx"
+    target_covers:
+      name: Affected blinds
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+    toggle_tilt_threshold:
+      name: Tilt threshold for toggle decision
+      description: >
+        Prah naklopení (0 svisle až 100 vodorovně), podle kterého se při stisku tlačítka rozhodne,
+        zda se mají žaluzie otevřít nebo zavřít. Pokud jsou žaluzie plně otevřené,
+        stisk je zavře. Pokud jsou plně zavřené, stisk je otevře.
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          mode: slider
+
+mode: restart
+
+trigger:
+  - platform: mqtt
+    topic: !input mqtt_topic
+
+condition:
+  - condition: template
+    value_template: "{{ trigger.payload_json.action in ['toggle', 'brightness_step_up', 'brightness_step_down'] }}"
+
+action:
+  - variables:
+      covers: !input target_covers
+      first_cover: "{{ covers[0] if covers is not string else covers }}"
+      toggle_tilt_threshold: !input toggle_tilt_threshold
+      current_tilt: "{{ state_attr(first_cover, 'current_tilt_position') | int(0) }}"
+      current_position: "{{ state_attr(first_cover, 'current_position') | int(0) }}"
+      current_state: "{{ states(first_cover) }}"
+      new_tilt: "{{ ((trigger.payload_json.brightness | float(0)) / 255 * 100) | round(0) | int }}"
+
+  - service: system_log.write
+    data:
+      level: info
+      message: >-
+        [SmartKnob] Trigger received |
+        action={{ trigger.payload_json.action }} |
+        first_cover={{ first_cover }} |
+        current_state={{ current_state }} |
+        current_position={{ current_position }} |
+        current_tilt={{ current_tilt }} |
+        new_tilt={{ new_tilt }} |
+        toggle_tilt_threshold={{ toggle_tilt_threshold }}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.payload_json.action in ['brightness_step_up', 'brightness_step_down'] }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ current_state in ['opening', 'closing'] }}"
+                sequence:
+                  - service: cover.stop_cover
+                    target:
+                      entity_id: !input target_covers
+
+          - service: cover.set_cover_tilt_position
+            target:
+              entity_id: !input target_covers
+            data:
+              tilt_position: "{{ new_tilt }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.payload_json.action == 'toggle' }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ current_state in ['opening', 'closing'] }}"
+                sequence:
+                  - service: cover.stop_cover
+                    target:
+                      entity_id: !input target_covers
+                  - service: cover.set_cover_tilt_position
+                    target:
+                      entity_id: !input target_covers
+                    data:
+                      tilt_position: "{{ new_tilt }}"
+
+              - conditions:
+                  - condition: template
+                    value_template: "{{ current_position == 100 }}"
+                sequence:
+                  - service: cover.close_cover
+                    target:
+                      entity_id: !input target_covers
+
+              - conditions:
+                  - condition: template
+                    value_template: "{{ current_position == 0 }}"
+                sequence:
+                  - service: cover.open_cover
+                    target:
+                      entity_id: !input target_covers
+
+              - conditions:
+                  - condition: template
+                    value_template: "{{ new_tilt > (toggle_tilt_threshold | int) }}"
+                sequence:
+                  - service: cover.open_cover
+                    target:
+                      entity_id: !input target_covers
+
+            default:
+              - service: cover.close_cover
+                target:
+                  entity_id: !input target_covers

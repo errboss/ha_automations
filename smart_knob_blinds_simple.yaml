@@ -1,0 +1,35 @@
+blueprint:
+  name: Smart knob dimmer - blinds via MQTT - simple
+  description: Smart knob dimmer for blinds control via MQTT
+  domain: automation
+  input:
+    mqtt_topic:
+      name: Smart knob MQTT topic
+      selector:
+        text:
+    target_covers:
+      name: Affected blinds
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+
+mode: queued
+
+trigger:
+  - platform: mqtt
+    topic: !input mqtt_topic
+
+condition:
+  - condition: template
+    value_template: >
+      {{ trigger.payload_json.action in ['brightness_step_up','brightness_step_down'] }}
+
+action:
+  - variables:
+      new_tilt: "{{ (trigger.payload_json.brightness | float(0) / 255 * 100) | round(0) }}"
+  - target:
+      entity_id: !input target_covers
+    data:
+      tilt_position: "{{ new_tilt }}"
+    action: cover.set_cover_tilt_position

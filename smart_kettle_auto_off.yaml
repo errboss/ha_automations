@@ -1,0 +1,87 @@
+blueprint:
+  name: Automatické vypnutí varné konvice
+  description: >
+    Automaticky vypne chytrou zásuvku, pokud výkon klesne pod prahovou hodnotu nebo uplyne časový limit.
+    Automatically switches off the smart plug when the kettle stops drawing power
+    (power falls below the defined threshold) or when the maximum allowed runtime is reached.
+  domain: automation
+  input:
+    plug_switch:
+      name: Chytrá zásuvka
+      selector:
+        entity:
+          domain: switch
+    power_sensor:
+      name: Senzor výkonu
+      selector:
+        entity:
+          domain: sensor
+          device_class: power
+    power_threshold:
+      name: Prahová hodnota výkonu (W)
+      default: 1500
+      selector:
+        number:
+          min: 10
+          max: 3000
+          unit_of_measurement: W
+    power_off_threshold:
+      name: Mez pro vypnutí (W)
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: W
+    time_limit:
+      name: Časový limit (minuty)
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 30
+          unit_of_measurement: min
+
+trigger:
+  - platform: state
+    entity_id: !input plug_switch
+    to: "on"
+    id: "zapnuto"
+  - platform: numeric_state
+    entity_id: !input power_sensor
+    below: !input power_off_threshold
+    id: "nízký_výkon"
+  - platform: event
+    event_type: timer.finished
+    event_data:
+      entity_id: timer.kettle_timer
+    id: "čas_vypršel"
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "zapnuto"
+        sequence:
+          - service: timer.start
+            data:
+              duration: !input time_limit
+            target:
+              entity_id: timer.kettle_timer
+      - conditions:
+          - condition: trigger
+            id: "nízký_výkon"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input plug_switch
+          - service: timer.cancel
+            target:
+              entity_id: timer.kettle_timer
+      - conditions:
+          - condition: trigger
+            id: "čas_vypršel"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input plug_switch
