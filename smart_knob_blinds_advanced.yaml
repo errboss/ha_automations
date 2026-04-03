@@ -50,6 +50,7 @@ action:
 
   - service: system_log.write
     data:
+      logger: smartknob.blinds
       level: info
       message: >-
         [SmartKnob] Trigger received |
