@@ -65,3 +65,16 @@ Advanced automation for controlling blinds using a Smart Knob with additional sm
 - Button press toggles open / close  
 - Stops blinds if already moving  
 - Smart decision logic based on tilt threshold  
+
+---
+
+# 4. Smart Knob Button Blinds Control (simple)
+
+Simple automation for controlling blinds using a Smart Knob Button with additional smart logic.
+
+[![Import Blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://raw.githubusercontent.com/errboss/ha_automations/main/smart_knob_easy_blinds_simple.yaml)
+
+## Features
+
+- Single press = open / stop and rotate if moving
+- Double press = close 
