@@ -32,7 +32,7 @@ trigger:
 
 condition:
   - condition: template
-    value_template: "{{ trigger.payload_json.action in ['single','double', 'off'] }}"
+    value_template: "{{ trigger.payload_json.action in ['single', 'double', 'off'] }}"
 
 action:
   - variables:
@@ -67,13 +67,14 @@ action:
                     target:
                       entity_id: !input target_covers
             default:
-              - service: cover.copen_cover
+              - service: cover.open_cover
                 target:
                   entity_id: !input target_covers
 
       - conditions:
           - condition: template
             value_template: "{{ trigger.payload_json.action in ['double', 'off'] }}"
-              - service: cover.close_cover
-                target:
-                  entity_id: !input target_covers
+        sequence:
+          - service: cover.close_cover
+            target:
+              entity_id: !input target_covers
