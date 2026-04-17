@@ -49,6 +49,7 @@ action:
           - service: cover.close_cover
             target:
               entity_id: !input target_covers
+
       - conditions:
           - condition: template
             value_template: "{{ trigger.payload_json.action == 'single' }}"
@@ -65,7 +66,8 @@ action:
                     target:
                       entity_id: !input target_covers
                     data:
-                      tilt_position: "{{ tilt_stop }}"
+                      tilt_position: !input tilt_stop
+
               - conditions:
                   - condition: template
                     value_template: "{{ current_position > 90 }}"
@@ -73,7 +75,8 @@ action:
                   - service: cover.close_cover
                     target:
                       entity_id: !input target_covers
+
             default:
-              - service: cover.copen_cover
+              - service: cover.open_cover
                 target:
                   entity_id: !input target_covers
