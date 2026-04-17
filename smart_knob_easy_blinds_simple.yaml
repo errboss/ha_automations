@@ -1,0 +1,79 @@
+blueprint:
+  name: Smart knob button - blinds via MQTT - advanced
+  description: Smart knob button for blinds control via MQTT
+  domain: automation
+  input:
+    mqtt_topic:
+      name: Smart knob MQTT topic
+      selector:
+        text:
+      default: "zigbee2mqtt/knob-xxx"
+    target_covers:
+      name: Affected blinds
+      selector:
+        entity:
+          domain: cover
+          multiple: true
+    tilt_stop:
+      name: Tilt position if stopped
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          mode: slider
+
+mode: restart
+
+trigger:
+  - platform: mqtt
+    topic: !input mqtt_topic
+
+condition:
+  - condition: template
+    value_template: "{{ trigger.payload_json.action in ['single','double', 'off'] }}"
+
+action:
+  - variables:
+      covers: !input target_covers
+      first_cover: "{{ covers[0] if covers is not string else covers }}"
+      current_position: "{{ state_attr(first_cover, 'current_position') | int(0) }}"
+      current_state: "{{ states(first_cover) }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.payload_json.action == 'single' }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ current_state in ['opening', 'closing'] }}"
+                sequence:
+                  - service: cover.stop_cover
+                    target:
+                      entity_id: !input target_covers
+                  - service: cover.set_cover_tilt_position
+                    target:
+                      entity_id: !input target_covers
+                    data:
+                      tilt_position: "{{ tilt_stop }}"
+              - conditions:
+                  - condition: template
+                    value_template: "{{ current_position > 90 }}"
+                sequence:
+                  - service: cover.close_cover
+                    target:
+                      entity_id: !input target_covers
+            default:
+              - service: cover.copen_cover
+                target:
+                  entity_id: !input target_covers
+
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.payload_json.action in ['double', 'off'] }}"
+              - service: cover.close_cover
+                target:
+                  entity_id: !input target_covers
